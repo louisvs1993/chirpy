@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"slices"
 	"strconv"
+	"strings"
 	"sync/atomic"
 )
 
@@ -62,7 +64,7 @@ func handlerChirpValidation(w http.ResponseWriter, r *http.Request) {
     }
 
 	type returnVals struct {
-    	Valid bool `json:"valid"`
+    	CleanedBody string `json:"cleaned_body"`
 	}
 
     decoder := json.NewDecoder(r.Body)
@@ -80,12 +82,33 @@ func handlerChirpValidation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	cleaned := stringCleaner(params.Body)
+
 	respBody := returnVals{
-		Valid: true,
+		CleanedBody: cleaned,
 	}
 
 	respondWithJSON(w, http.StatusOK, respBody)
 }
+
+func stringCleaner(s string) string{
+	words := strings.Split(s, " ")
+	bannedWords := []string{"kerfuffle", "sharbert", "fornax"}
+
+    for i, word := range words {
+        lower := strings.ToLower(word)
+
+        if slices.Contains(bannedWords, lower){
+			words[i] = "****"
+		}
+    }
+
+    return strings.Join(words, " ")
+}
+
+//
+// RESPONSE CREATORS
+//
 
 func respondWithError(w http.ResponseWriter, code int, msg string, err error){
 	if err != nil {
