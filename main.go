@@ -1,14 +1,20 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
+
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
+	"github.com/louisvs1993/chirpy/internal/database"
 )
 
 //
@@ -17,6 +23,7 @@ import (
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	db *database.Queries
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -145,8 +152,21 @@ func respondWithJSON(w http.ResponseWriter, code int, payload interface{}){
 func main() {
 	const port = "8080"
 	const filepathRoot = "."
+
+	godotenv.Load()
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatal("DB_URL must be set")
+	}
+	dbConn, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatalf("Error opening database: %s", err)
+	}
+	dbQueries := database.New(dbConn)
+	
 	apiCfg := apiConfig{
 		fileserverHits: atomic.Int32{},
+		db: dbQueries,
 	}
     mux := http.NewServeMux()
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filepathRoot)))))
@@ -154,8 +174,6 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", apiCfg.handlerNumOfReqs)
 	mux.HandleFunc("POST /admin/reset", apiCfg.handlerResetNumOfReqs)
 	mux.HandleFunc("POST /api/validate_chirp", handlerChirpValidation)
-
-
 
 	srv := &http.Server{
         Addr:    ":" + port,
