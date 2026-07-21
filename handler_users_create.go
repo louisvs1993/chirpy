@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/louisvs1993/chirpy/internal/auth"
 	"github.com/louisvs1993/chirpy/internal/database"
 )
 
@@ -33,11 +34,15 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	hashedPassword, err := HashPassword(params.Password) 
+	hashedPassword, err := auth.HashPassword(params.Password)
+	if err != nil {
+    	respondWithError(w, http.StatusInternalServerError, "Couldn't hash password", err)
+    	return
+	}
 	
 	createUserParams := database.CreateUserParams{
 			Email: params.Email,
-			HashedPassword: params.Password,
+			HashedPassword: hashedPassword,
 	}
 
 	user, err := cfg.db.CreateUser(r.Context(), createUserParams)
@@ -52,7 +57,6 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 			CreatedAt: user.CreatedAt,
 			UpdatedAt: user.UpdatedAt,
 			Email:     user.Email,
-			Password: user.Password,
 		},
 	})
 }

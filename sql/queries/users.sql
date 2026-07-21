@@ -8,3 +8,7 @@ VALUES (
     $2
 )
 RETURNING *;
+
+
+-- name: GetUsersByEmail :one
+SELECT * FROM users WHERE users.email = $1;
